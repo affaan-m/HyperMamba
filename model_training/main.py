@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Created on Wed Jan  8 11:32:34 2025
 
@@ -37,7 +38,7 @@ forecast_horizon = 90  # Predict the next year
 from DataLoader import create_dataloader
 dataloader = create_dataloader(data, historic_horizon, forecast_horizon, device, debug=False)
 
-from AttentionLSTM import create_model
+from MambaSSM import create_model
 model = create_model(data, forecast_horizon, device)
 force_teaching = "Transformer" in model.__class__.__name__
 model = nn.DataParallel(model, device_ids=list(range(1))) # In case of multiple GPUs

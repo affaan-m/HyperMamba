@@ -4,13 +4,18 @@ Created on Mon Jan 13 10:22:14 2025
 
 @author: Admin
 """
-from typing import Union
+import os
+script_path = os.path.dirname(os.path.realpath(__file__))
+os.chdir(script_path)
+
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
-from dataclasses import dataclass
+
+from typing import Union
 from einops import rearrange, repeat
+from dataclasses import dataclass
 
 from scans import selective_scan
 
@@ -35,16 +40,19 @@ class ModelArgs:
         if self.dt_rank == 'auto':
             self.dt_rank = math.ceil(self.d_model / 16)
 
+
+# %%
 class MambaSSM(nn.Module):
-    def __init__(self, args: ModelArgs, historic_horizon: int, forecast_horizon: int):
+    
+    def __init__(self, args: ModelArgs, input_dimension: int, output_length: int):
+        
         """MAMBA SSM model for time series forecasting."""
         super().__init__()
         self.args = args
-        self.historic_horizon = historic_horizon
-        self.forecast_horizon = forecast_horizon
+        self.output_length = output_length
 
         # Input layer: Expecting input shape (batch_size, historic_horizon, 7)
-        self.input_layer = nn.Linear(7, args.d_model)
+        self.input_layer = nn.Linear(input_dimension, args.d_model)
         
         # Mamba layers
         self.layers = nn.ModuleList([ResidualBlock(args) for _ in range(args.n_layer)])
@@ -71,12 +79,15 @@ class MambaSSM(nn.Module):
         x = self.norm_f(x)
 
         # Step 4: Output the forecast (forecast_horizon x 1 feature)
-        forecast = self.output_layer(x[:, -self.forecast_horizon:, :])  # Use only the forecast horizon
+        forecast = self.output_layer(x[:, -self.output_length:, :])  # Use only the forecast horizon
         
         return forecast
 
+
 class ResidualBlock(nn.Module):
+    
     def __init__(self, args: ModelArgs):
+        
         """A residual block with MambaBlock and RMSNorm."""
         super().__init__()
         self.mixer = MambaBlock(args)
@@ -87,7 +98,9 @@ class ResidualBlock(nn.Module):
             
 
 class MambaBlock(nn.Module):
+    
     def __init__(self, args: ModelArgs):
+        
         """A single Mamba Block with convolutions and state-space processing."""
         super().__init__()
         self.args = args
@@ -112,6 +125,7 @@ class MambaBlock(nn.Module):
         self.out_proj = nn.Linear(args.d_inner, args.d_model, bias=args.bias)
         
     def forward(self, x):
+        
         """Forward pass for the Mamba block."""
         (b, l, d) = x.shape
         x_and_res = self.in_proj(x)
@@ -129,6 +143,7 @@ class MambaBlock(nn.Module):
         return self.out_proj(y)
 
     def ssm(self, x):
+        
         """Selective State-Space Model (SSM) forward pass."""
         (d_in, n) = self.A_log.shape
         A = -torch.exp(self.A_log.float())  # shape (d_in, n)
@@ -142,6 +157,7 @@ class MambaBlock(nn.Module):
 
 
 class RMSNorm(nn.Module):
+    
     def __init__(self, d_model: int, eps: float = 1e-5):
         super().__init__()
         self.eps = eps
@@ -152,5 +168,14 @@ class RMSNorm(nn.Module):
 
 
 # %%
+def create_model(data, forecast_horizon, device):
+    
+    input_dimension = len(data.columns)
+    output_length = forecast_horizon
+    
+    arguments  = ModelArgs(d_model = 6, n_layer = 4)
+    
+    model = MambaSSM(arguments, input_dimension, output_length).to(device)
+    print("Mamba SSM model successfully initialized.")
+    return model
 
-k = ModelArgs(d_model = 6, n_layer = 4, )
