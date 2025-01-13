@@ -1,0 +1,5 @@
+torch
+lightning
+transformers
+datasets
+einops
