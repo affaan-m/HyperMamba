@@ -14,9 +14,6 @@ from einops import rearrange, repeat
 
 from scans import selective_scan
 
-# %%
-
-k = ModelArgs(d_model = 6, n_layer = 4, )
 
 # %%
 @dataclass
@@ -152,3 +149,8 @@ class RMSNorm(nn.Module):
 
     def forward(self, x):
         return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps) * self.weight
+
+
+# %%
+
+k = ModelArgs(d_model = 6, n_layer = 4, )
